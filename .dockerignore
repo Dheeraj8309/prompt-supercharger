@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+.env*/ 
+.venv/
+
+# Git
+.git/
+.gitignore
+
+# Editors & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Node / frontend (if any)
+node_modules/
+
+# Data / models / caches (adjust to your project)
+data/
+models/
+cache/
+*.bin
+*.pt
+*.safetensors
+
+# Logs
+*.log
