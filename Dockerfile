@@ -1,32 +1,27 @@
-# Use slim Python base image
 FROM python:3.11-slim
 
-# Prevent interactive prompts
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Install build essentials only for compilation, then clean up
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
- && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
 WORKDIR /app
 
-# Copy requirements first (for Docker caching)
+# Minimal OS deps
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install only small runtime deps
 COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt && pip cache purge
 
-# Install dependencies (CPU-only PyTorch to save space)
-RUN pip install --no-cache-dir -r /tmp/requirements.txt \
-    torch==2.3.1+cpu torchvision==0.18.1+cpu torchaudio==2.3.1+cpu \
-    -f https://download.pytorch.org/whl/cpu/torch_stable.html \
- && pip cache purge
-
-# Copy app code
+# App source
 COPY . .
 
-# Expose the port Flask will run on
+# Non-root
+RUN useradd -m appuser
+USER appuser
+
 EXPOSE 8080
 
-# Start the app with Gunicorn (production WSGI server)
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
+# Single worker to minimize memory; bind to $PORT on Render, 8080 locally
+CMD ["bash","-lc","exec gunicorn -w 1 -k gthread --threads 8 --timeout 120 -b 0.0.0.0:${PORT:-8080} app:app"]

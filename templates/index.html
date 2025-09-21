@@ -8,19 +8,12 @@
     /* --- your existing styles kept as-is --- */
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Segoe UI',Tahoma,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.8s ease-out}
-    @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}
-    }
+    @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
     .container{background:rgba(255,255,255,.95);backdrop-filter:blur(15px);border-radius:24px;padding:40px;box-shadow:0 25px 50px rgba(0,0,0,.15),0 0 0 1px rgba(255,255,255,.3);width:100%;max-width:600px;border:1px solid rgba(255,255,255,.2);animation:slideUp 0.6s ease-out 0.2s both}
     @keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
     h2{color:#2d3748;font-size:2.2rem;font-weight:700;text-align:center;margin-bottom:35px;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 2px 4px rgba(0,0,0,0.1);letter-spacing:-0.5px}
-    .input-group{margin-bottom:30px}
-    textarea{width:100%;height:130px;padding:18px;border:2px solid #e2e8f0;border-radius:16px;font-size:16px;background:#f8fafc;color:#2d3748;resize:vertical;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);box-shadow:0 4px 12px rgba(0,0,0,0.05);line-height:1.6}
-    textarea:focus{outline:none;border-color:#667eea;background:#fff;box-shadow:0 8px 25px rgba(102,126,234,0.2);transform:translateY(-2px)}
-    textarea::placeholder{color:#a0aec0;font-style:italic}
-    .controls{display:flex;gap:18px;align-items:center;margin-bottom:30px;flex-wrap:wrap}
+    .controls{display:flex;gap:18px;align-items:center;margin-bottom:30px;flex-wrap:wrap;justify-content:center}
     select,button{padding:14px 20px;border:2px solid #e2e8f0;border-radius:12px;font-size:16px;cursor:pointer;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);font-weight:500}
-    select{background:#f8fafc;color:#2d3748;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
-    select:focus{outline:none;border-color:#667eea;box-shadow:0 4px 15px rgba(102,126,234,0.15)}
     button{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-weight:600;box-shadow:0 6px 20px rgba(102,126,234,.25);border:none;position:relative;overflow:hidden}
     button::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);transition:left 0.5s}
     button:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(102,126,234,.4)}
@@ -48,19 +41,25 @@
       .row{flex-direction:column;gap:8px}
       .row button{width:100%}
     }
-    .input-group:hover textarea{border-color:#cbd5e0}
     button:disabled{opacity:0.6;cursor:not-allowed;transform:none !important}
     button:disabled:hover{box-shadow:0 6px 20px rgba(102,126,234,.25) !important}
     form{animation:slideIn 0.4s ease-out}
     @keyframes slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+
+    /* New style for intent buttons */
+    .intent-btn{background:#e2e8f0;color:#2d3748 !important}
+    .intent-btn.active{background:linear-gradient(135deg,#667eea,#764ba2) !important;color:#fff !important}
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>Prompt Assist Demo</h2>
+    <h2>Prompt Supercharger</h2>
 
-    <div class="input-group">
-      <textarea id="userText" placeholder="Type your prompt here... ✨"></textarea>
+    <!-- Intent buttons -->
+    <div class="controls">
+      <button class="intent-btn" data-intent="image">🖼 Image</button>
+      <button class="intent-btn" data-intent="email">📧 Email</button>
+      <button class="intent-btn" data-intent="code">💻 Code</button>
     </div>
 
     <div class="controls">
@@ -78,7 +77,6 @@
       <div class="spacer"></div>
     </div>
 
-    <!-- Clarifying questions form placeholder (rendered dynamically) -->
     <form id="clarifyForm" onsubmit="submitAnswers(event)">
       <h3>❓ Clarifying Questions:</h3>
       <div id="clarifyFields"></div>
@@ -87,119 +85,98 @@
   </div>
 
   <script>
-    // ---------- Globals / State ----------
-    let LAST_SUGGEST = null;
-    let LAST_REFINED_PROMPT = "";
     let LAST_INTENT = "";
+    let LAST_REFINED_PROMPT = "";
     let LAST_ANSWERS = [];
     let ALT_CLICK_COUNT = 0;
 
-    const OUTPUT    = document.getElementById("output");
-    const LOADING   = document.getElementById("loading");
-    const GET_BTN   = document.getElementById("getBtn");
-    const ALT_BTN   = document.getElementById("altBtn");
-    const COPY_BTN  = document.getElementById("copyBtn");
-    const FORM      = document.getElementById("clarifyForm");
-    const FIELDS    = document.getElementById("clarifyFields");
+    const OUTPUT = document.getElementById("output");
+    const LOADING = document.getElementById("loading");
+    const GET_BTN = document.getElementById("getBtn");
+    const ALT_BTN = document.getElementById("altBtn");
+    const COPY_BTN = document.getElementById("copyBtn");
+    const FORM = document.getElementById("clarifyForm");
+    const FIELDS = document.getElementById("clarifyFields");
 
-    // ---------- Helpers ----------
-    function setLoading(isLoading, text = "Processing your request...") {
+    function setLoading(isLoading, text="Processing...") {
       LOADING.style.display = isLoading ? "block" : "none";
       if (isLoading) LOADING.textContent = text;
     }
 
-    function renderQuestions(intent, questions) {
-      const supported = ["image", "email", "code"];
-      if (!supported.includes(intent)) {
-        FORM.style.display = "none";
-        FIELDS.innerHTML = "";
-        return;
-      }
+    function enableAltCopy(enabled) {
+      ALT_BTN.disabled = !enabled;
+      COPY_BTN.disabled = !enabled;
+    }
 
+    // Intent selection shows clarifying questions immediately
+    document.querySelectorAll(".intent-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".intent-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        LAST_INTENT = btn.dataset.intent;
+
+        let questions = [];
+        if (LAST_INTENT === "image") {
+          questions = [
+            "What is the main subject and its key attributes?",
+            "Style (photo, 3D render, illustration, watercolor, pixel art, etc.)?",
+            "Background/setting for the image?",
+            "Composition & aspect ratio (close-up vs wide; 1:1, 4:5, 16:9)?",
+            "Lighting / mood (golden hour, studio softbox, neon, moody, high-key)?",
+            "Any color palette or reference keywords?"
+          ];
+        } else if (LAST_INTENT === "email") {
+          questions = [
+            "Who is the recipient and their role?",
+            "What is the purpose (inform, request, update)?",
+            "Preferred tone (formal, friendly, concise)?",
+            "Any constraints (length, deadline)?"
+          ];
+        } else if (LAST_INTENT === "code") {
+          questions = [
+            "Preferred programming language or framework?",
+            "What should the code do (task/goal)?",
+            "What inputs does it take (format, examples)?",
+            "What should it output/return?",
+            "Any constraints (performance, style, error handling)?",
+            "Runtime environment / versions / packages to use/avoid?"
+          ];
+        }
+
+        renderQuestions(questions);
+        OUTPUT.textContent = `Selected intent: ${LAST_INTENT.toUpperCase()}. Please answer the questions below.`;
+      });
+    });
+
+    function renderQuestions(questions) {
       FIELDS.innerHTML = "";
       (questions || []).forEach((q, i) => {
         const wrap = document.createElement("div");
         wrap.className = "clarify-input";
-        const label = document.createElement("label");
-        label.textContent = q;
-        const input = document.createElement("input");
-        input.type = "text";
-        input.name = `q${i+1}`;
-        wrap.appendChild(label);
-        wrap.appendChild(input);
+        wrap.innerHTML = `<label>${q}</label><input type="text" name="q${i+1}" />`;
         FIELDS.appendChild(wrap);
       });
-
-      FORM.style.display = questions && questions.length ? "block" : "none";
+      FORM.style.display = questions.length ? "block" : "none";
     }
 
-    function showFirstPass(data) {
-      let html = `✨ Improved Prompt:\n${data.improved_prompt || "N/A"}\n\n`;
-      if (data.clarifying_questions?.length) {
-        html += "❓ Clarifying Questions:\n";
-        data.clarifying_questions.forEach((q, i) => html += `${i+1}. ${q}\n`);
-      }
-      OUTPUT.textContent = html;
-    }
-
-    function getAnswersFromForm() {
-      const fd = new FormData(FORM);
-      const out = [];
-      for (const [name, value] of fd.entries()) {
-        out.push({ name, value: String(value || "").trim() });
-      }
-      return out;
-    }
-
-    function enableAltCopy(enabled) {
-      ALT_BTN.disabled  = !enabled;
-      COPY_BTN.disabled = !enabled;
-    }
-
-    // ---------- Actions ----------
     async function sendRequest() {
-      const text = document.getElementById("userText").value;
-      const lang = "en"; // single language
-
-      // Reset state for a new session
-      LAST_SUGGEST = null;
-      LAST_REFINED_PROMPT = "";
-      LAST_INTENT = "";
-      LAST_ANSWERS = [];
-      ALT_CLICK_COUNT = 0;
-      enableAltCopy(false);
-
+      if (!LAST_INTENT) {
+        alert("Please select Image, Email, or Code first.");
+        return;
+      }
       setLoading(true, "Analyzing prompt…");
       OUTPUT.textContent = "Processing…";
-      FORM.style.display = "none";
-      FIELDS.innerHTML = "";
 
       try {
         const res = await fetch("/api/suggest", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, lang })
+          body: JSON.stringify({ text: "", lang: "en", intent: LAST_INTENT })
         });
-
-        const ct = res.headers.get("content-type") || "";
-        if (!ct.includes("application/json")) {
-          const txt = await res.text();
-          throw new Error(`Server did not return JSON. ${txt.slice(0, 200)}…`);
-        }
-
         const data = await res.json();
-        LAST_SUGGEST = data;
-        LAST_INTENT = data.intent || "";
-
-        if (!["image","email","code"].includes(LAST_INTENT)) {
-          LAST_INTENT = "general";
-        }
-
-        showFirstPass(data);
-        renderQuestions(LAST_INTENT, data.clarifying_questions || []);
-
+        OUTPUT.textContent = data.improved_prompt || "N/A";
       } catch (err) {
-        OUTPUT.textContent = "Error: " + (err?.message || err);
+        OUTPUT.textContent = "Error: " + err.message;
       } finally {
         setLoading(false);
       }
@@ -207,50 +184,21 @@
 
     async function submitAnswers(ev) {
       ev.preventDefault();
-      const text = document.getElementById("userText").value;
-      const lang = "en";
-
-      const answers = getAnswersFromForm().filter(a => a.value);
-      LAST_ANSWERS = answers;
-
       setLoading(true, "Refining prompt…");
-      OUTPUT.textContent = "Refining…";
-
+      const answers = Array.from(new FormData(FORM)).map(([name, value]) => ({name, value}));
+      LAST_ANSWERS = answers;
       try {
         const res = await fetch("/api/refine", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text,
-            lang,
-            intent: LAST_INTENT,
-            answers
-          })
+          body: JSON.stringify({ text: "", lang: "en", intent: LAST_INTENT, answers })
         });
-
-        const ct = res.headers.get("content-type") || "";
-        if (!ct.includes("application/json")) {
-          const txt = await res.text();
-          throw new Error(`Server did not return JSON. ${txt.slice(0, 200)}…`);
-        }
-
         const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-
         LAST_REFINED_PROMPT = data.refined_prompt || "";
-        LAST_INTENT = data.intent || LAST_INTENT;
-
-        if (!LAST_REFINED_PROMPT) {
-          OUTPUT.textContent = "No refined prompt generated.";
-          enableAltCopy(false);
-          return;
-        }
-
         OUTPUT.textContent = `🎯 Refined Prompt:\n${LAST_REFINED_PROMPT}`;
-        ALT_CLICK_COUNT = 0;
         enableAltCopy(true);
       } catch (err) {
-        OUTPUT.textContent = "Error: " + (err?.message || err);
+        OUTPUT.textContent = "Error: " + err.message;
         enableAltCopy(false);
       } finally {
         setLoading(false);
@@ -258,46 +206,22 @@
     }
 
     async function onAlternateClick() {
-      if (!LAST_REFINED_PROMPT || !LAST_INTENT) {
-        OUTPUT.textContent = "No refined prompt available yet. Submit answers first.";
+      if (!LAST_REFINED_PROMPT) {
+        OUTPUT.textContent = "No refined prompt yet.";
         return;
       }
       ALT_BTN.disabled = true;
       setLoading(true, "Generating alternate…");
-      OUTPUT.textContent = "Generating alternate…";
-
       try {
         const res = await fetch("/api/alternate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: LAST_REFINED_PROMPT,
-            intent: LAST_INTENT,
-            answers: LAST_ANSWERS || [],
-            index: ALT_CLICK_COUNT || 0
-          })
+          body: JSON.stringify({ prompt: LAST_REFINED_PROMPT, intent: LAST_INTENT, answers: LAST_ANSWERS, index: ALT_CLICK_COUNT })
         });
-
-        const ct = res.headers.get("content-type") || "";
-        if (!ct.includes("application/json")) {
-          const txt = await res.text();
-          throw new Error(`Server did not return JSON. ${txt.slice(0, 200)}…`);
-        }
-
         const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-
-        const alt = data.alternate_prompt || "";
-        if (!alt.trim()) {
-          throw new Error("No alternate generated.");
-        }
-
-        LAST_REFINED_PROMPT = alt;
-        ALT_CLICK_COUNT = (ALT_CLICK_COUNT || 0) + 1;
-
+        LAST_REFINED_PROMPT = data.alternate_prompt || LAST_REFINED_PROMPT;
         OUTPUT.textContent = `🎯 Refined Prompt:\n${LAST_REFINED_PROMPT}`;
-      } catch (err) {
-        OUTPUT.textContent = "Error: " + (err?.message || err);
+        ALT_CLICK_COUNT++;
       } finally {
         setLoading(false);
         ALT_BTN.disabled = false;
@@ -305,21 +229,14 @@
     }
 
     async function onCopyClick() {
-      const toCopy = LAST_REFINED_PROMPT || "";
-      if (!toCopy.trim()) return;
-      try {
-        await navigator.clipboard.writeText(toCopy);
-        COPY_BTN.textContent = "✅ Copied";
-        setTimeout(() => (COPY_BTN.textContent = "📋 Copy"), 1200);
-      } catch (e) {
-        COPY_BTN.textContent = "❌ Copy failed";
-        setTimeout(() => (COPY_BTN.textContent = "📋 Copy"), 1200);
-      }
+      if (!LAST_REFINED_PROMPT) return;
+      await navigator.clipboard.writeText(LAST_REFINED_PROMPT);
+      COPY_BTN.textContent = "✅ Copied";
+      setTimeout(()=>COPY_BTN.textContent="📋 Copy",1200);
     }
 
-    // ---------- Event bindings ----------
     GET_BTN.addEventListener("click", sendRequest);
-    document.getElementById("clarifyForm").addEventListener("submit", submitAnswers);
+    FORM.addEventListener("submit", submitAnswers);
     ALT_BTN.addEventListener("click", onAlternateClick);
     COPY_BTN.addEventListener("click", onCopyClick);
   </script>
